@@ -1,10 +1,10 @@
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
-from posts.models import Group, Post, User
-from rest_framework import filters, permissions, status, viewsets
+from rest_framework import filters, permissions, status, viewsets, mixins
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 
+from posts.models import Group, Post, User
 from .permission import IsOwnerOrReadOnly
 from .serializers import (
     CommentSerializer, FollowSerializer, GroupSerializer, PostSerializer)
@@ -46,12 +46,15 @@ class GroupViewSet(viewsets.ModelViewSet):
         return Response(status=status.HTTP_405_METHOD_NOT_ALLOWED)
 
 
-class FollowViewSet(viewsets.ModelViewSet):
-    http_method_names = ['get', 'post']
-    permission_classes = [permissions.IsAuthenticated]
+class FollowViewSet(mixins.CreateModelMixin,
+                    mixins.ListModelMixin,
+                    viewsets.GenericViewSet):
+    queryset = Follow.objects.all()
     serializer_class = FollowSerializer
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['user__username', 'following__username']
+    pagination_class = pagination.LimitOffsetPagination
+    permission_classes = (permissions.IsAuthenticated,)
+    filter_backends = (SearchFilter,)
+    search_fields = ('following__username', 'user__username',)
 
     def get_queryset(self):
         user = get_object_or_404(User, username=self.request.user)
